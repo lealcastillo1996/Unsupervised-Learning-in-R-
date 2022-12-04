@@ -1,0 +1,128 @@
+---
+title: "As1"
+output: html_document
+date: "2022-10-18"
+---
+
+Step 1: Run the following code
+Run the following code to load some clustering data with 2 features into your session.
+
+```{r}
+library(tidyverse)
+library(RCurl)
+x <- getURL("https://raw.githubusercontent.com/vankesteren/dav_practicals/master/12_Unsupervised_learning_Clustering/data/clusterdata.csv")
+clus_df <- read.csv(text = x)
+clus_df
+
+```
+Step 2
+
+The Euclidean distance between two vectors 𝐱 and 𝐲 of equal length 𝑁 is 𝐷 = ||𝐱 − 𝐲||2 = √∑𝑁 ( 𝑥 − 𝑦 )2. These two vectors represent points in 𝑁-dimensional space and the
+
+Euclidian distance is the straight-line distance between these points.
+Write a function l2_dist(x, y) that takes in two vectors and outputs the Euclidian distance between the two vectors.
+
+```{r}
+#Euclidean distance function
+l2_dist = function(x,y){
+  return(sqrt(sum((x-y)^2)))}
+```
+
+Step 3: K-medians clustering algorithm
+K-medians is partitional clustering method. It is a variant of k-means where it calculates the median instead of calculating the mean for each cluster to determine its centroid.
+Program a K-medians clustering algorithm called kmedians. The inputs of this function should be X, a data frame, and K, an integer stating how many clusters you want. The output is (at least) the cluster assignments (an integer vector). Use your l2_dist function to compute the euclidian distance. Create helpful comments in the code along the way.
+
+```{r}
+#Set seed for reproducible results
+set.seed(1)
+#Definining function
+kmed_clustering = function(x,k){
+  
+  #Assigning random groups to each data
+  x$clusters <- sample(k, size=nrow(x), replace = TRUE)
+  
+ 
+  repeat { #infinite cicle 
+    changes <- TRUE # to scape from cycle
+    
+    #Obtaining centroids by medians method of each cluster 
+    by_clus <- x %>% 
+      group_by(clusters)  %>%
+      summarise(
+        centroidx = median(x1),
+        centroidy = median(x2))
+    
+    #Defining empty matrix to store distances from each point to each cluster
+    distances= matrix(,nrow=nrow(x),ncol=k)
+    
+    #Defining empty matrix to store the selected cluster
+    winner = matrix(,nrow=nrow(x),ncol=1)
+    
+    #Double cycle to get distance for each row to each  cluster
+    for (i in 1:nrow(x) ) {
+      for (clus in 1:k) { 
+        distances[i,clus] = l2_dist(as.numeric(by_clus[clus,2:3]), as.numeric(x[i,1:2]))
+      }
+      
+      #Get the best (minimum distance to a cluster)
+      winner[i,1] = which (distances[i,1:k] == min(distances[i,1:k]), arr.ind = TRUE)
+    }
+    
+    
+    #To escape from cycle when there are not changes between clusters in  2 consecutive iterations
+    if (identical(as.vector(x$clusters), c(t(winner)))) {
+      changes <- FALSE
+    }
+    
+    
+    #Updating clusters 
+    x$clusters <- winner
+    
+    #If  there  are no more changes, break the cycle
+    if (!changes) {break} 
+  }
+  
+  #Returning the optimum clusters vector
+  return(winner)
+}
+
+
+#Running function to obtain k medians
+kmedians_clusters= kmed_clustering(clus_df,4)
+
+
+#creating df to store kmedian clusters
+df_cluster_med <- clus_df
+df_cluster_med$kmedian <- kmedians_clusters
+df_cluster_med
+
+```
+
+
+Step 4: Compare to K-means
+Apply your kmedians function and the R kmeans function on clus_df and compare the results in a good visualisation. Reflect on the differences and similarities that you see.
+
+
+```{r}
+#Computing kmean cluster with r function and storing to a df
+df_cluster_mean <- clus_df
+df = dist(df_cluster_mean)
+df_cluster_mean$kmean = kmeans(df,4)$cluster
+
+
+library(patchwork)
+#plotting kmedians
+p1 <- ggplot(df_cluster_med) + geom_point(aes(x1, x2, color = as.factor(kmedian)))  + ggtitle("K-medians clusters")
+
+#plotting kmeans
+p2 <- ggplot(df_cluster_mean) + geom_point(aes(x1, x2, color = as.factor(kmean))) + ggtitle("K-means clusters")
+
+
+#Joining all and plotting
+p1+theme(legend.position="none")+ p2+theme(legend.position="none")
+```
+
+
+
+
+
